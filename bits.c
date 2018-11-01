@@ -111,8 +111,7 @@ NOTES:
  */
 int absVal(int x)
 {
-    int y = x >> 30;
-    y = y >> 1;
+    int y = x >> 30 >> 1;
     return (x ^ y) + (~y + 1);
 }
 
@@ -126,12 +125,9 @@ int absVal(int x)
  */
 int addOK(int x, int y)
 {
-    int x_s = x >> 30;
-    x_s = x_s >> 1;
-    int y_s = y >> 30;
-    y_s = y_s >> 1;
-    int xy_s = (x + y) >> 30;
-    xy_s = xy_s >> 1;
+    int x_s = x >> 30 >> 1;
+    int y_s = y >> 30 >> 1;
+    int xy_s = (x + y) >> 30 >> 1;
     return (((x_s ^ y_s) & 1) | (~((x_s & y_s) ^ xy_s) & 1));
 }
 
@@ -145,7 +141,11 @@ int addOK(int x, int y)
  */
 int allEvenBits(int x)
 {
-    return !(0x55555555 ^ (x & 0x55555555));
+    x = x & (x >> 2);
+    x = x & (x >> 4);
+    x = x & (x >> 8);
+    x = x & (x >> 16);
+    return x & 1;
 }
 
 /*
@@ -158,7 +158,12 @@ int allEvenBits(int x)
  */
 int allOddBits(int x)
 {
-    return !(0xAAAAAAAA ^ (x & 0xAAAAAAAA));
+    x = x & (x >> 2);
+    x = x & (x >> 4);
+    x = x & (x >> 8);
+    x = x & (x >> 16);
+    x = x >> 1;
+    return x & 1;
 }
 
 /*
@@ -171,7 +176,11 @@ int allOddBits(int x)
  */
 int anyEvenBit(int x)
 {
-    return !!((x & 0x55555555) ^ 0);
+    x = x | (x >> 2);
+    x = x | (x >> 4);
+    x = x | (x >> 8);
+    x = x | (x >> 16);
+    return x & 1;
 }
 
 /*
@@ -184,7 +193,12 @@ int anyEvenBit(int x)
  */
 int anyOddBit(int x)
 {
-    return !!((x & 0xAAAAAAAA) ^ 0);
+    x = x | (x >> 2);
+    x = x | (x >> 4);
+    x = x | (x >> 8);
+    x = x | (x >> 16);
+    x = x >> 1;
+    return x & 1;
 }
 
 /*
@@ -348,10 +362,10 @@ int bitXor(int x, int y)
  */
 int byteSwap(int x, int n, int m)
 {
-    int set1 = (x >> n * 8) & 0xff;
-    int set2 = (x >> m * 8) & 0xff;
+    int set1 = (x >> (n << 3)) & 0xff;
+    int set2 = (x >> (m << 3)) & 0xff;
     int xor = (set1 ^ set2);
-    xor = (xor << n * 8) | (xor << m * 8);
+    xor = (xor << (n << 3)) | (xor << (m << 3));
     return x ^ xor;
 }
 
@@ -364,8 +378,8 @@ int byteSwap(int x, int n, int m)
  */
 int conditional(int x, int y, int z)
 {
-    int s = (!!x - 1) & (-1);
-    return (y & (-1 - s)) | (z & (s));
+    int s = (!!x + (~1 + 1)) & (-1);
+    return (y & (-1 + (~s + 1))) | (z & (s));
 }
 
 /*
@@ -460,7 +474,8 @@ int evenBits(void)
  */
 int ezThreeFourths(int x)
 {
-    return 42;
+    x = x + (x << 1);
+    return (x + ((x >> 30 >> 1) & 3)) >> 2;
 }
 
 /*
@@ -474,7 +489,8 @@ int ezThreeFourths(int x)
  */
 int fitsBits(int x, int n)
 {
-    return 42;
+    int mask = 32 + (~n + 1);
+    return !(x ^ (x << mask >> mask));
 }
 
 /*
@@ -487,7 +503,7 @@ int fitsBits(int x, int n)
  */
 int fitsShort(int x)
 {
-    return 42;
+    return !(x ^ (x << 16 >> 16));
 }
 
 /*
@@ -503,7 +519,10 @@ int fitsShort(int x)
  */
 unsigned floatAbsVal(unsigned uf)
 {
-    return 42;
+    unsigned ma = uf & 0x007fffff;
+    unsigned ex = (uf & 0x7f800000);
+    return (ex == 0x7f800000 && ma) ? uf : (0x7fffffff & uf);
+    //    return (uf > 0x7f800000) ? uf : (0x7fffffff & uf);
 }
 
 /*
@@ -550,7 +569,11 @@ unsigned floatInt2Float(int x)
  */
 int floatIsEqual(unsigned uf, unsigned ug)
 {
-    return 42;
+    int mask_us = 0x7fffffff;
+    int exmask = 0x7f800000;
+    int isNaN = ((uf & mask_us) > exmask || (ug & mask_us) > exmask);
+    int zeros = (!((uf & mask_us) || ((ug & mask_us))));
+    return (!isNaN) && (zeros || (uf == ug));
 }
 
 /*
@@ -566,7 +589,24 @@ int floatIsEqual(unsigned uf, unsigned ug)
  */
 int floatIsLess(unsigned uf, unsigned ug)
 {
-    return 42;
+    int mask_us = 0x7fffffff;
+    int exmask = 0x7f800000;
+    int mamask = 0x007fffff;
+    int uf_s = (uf >> 31) & 1, ug_s = (ug >> 31) & 1;
+    int uf_ex = (uf >> 23) & 0xff, ug_ex = (ug >> 23) & 0xff;
+    int uf_ma = (uf & mamask), ug_ma = (ug & mamask);
+    int isNaN = ((uf & mask_us) > exmask || (ug & mask_us) > exmask);
+    if (!(uf & mask_us) && !(ug & mask_us))
+        return 0;
+    if (isNaN)
+        return 0;
+    if (uf_s ^ ug_s)
+        return uf_s > ug_s;
+    if (uf_ex ^ ug_ex)
+        return (uf_ex < ug_ex) ^ uf_s;
+    if (uf_ma ^ ug_ma)
+        return (uf_ma < ug_ma) ^ uf_s;
+    return 0;
 }
 
 /*
@@ -582,7 +622,9 @@ int floatIsLess(unsigned uf, unsigned ug)
  */
 unsigned floatNegate(unsigned uf)
 {
-    return 42;
+    if ((uf & 0x7fffffff) > 0x7f800000)
+        return uf;
+    return uf ^ 0x80000000;
 }
 
 /*
@@ -676,7 +718,8 @@ unsigned floatUnsigned2Float(unsigned u)
  */
 int getByte(int x, int n)
 {
-    return 42;
+    x = x >> (n << 3);
+    return x & 0xff;
 }
 
 /*
@@ -689,7 +732,13 @@ int getByte(int x, int n)
  */
 int greatestBitPos(int x)
 {
-    return 42;
+    int n = 0;
+    n += ((!!(x & ((~0) << (n + 16)))) << 4);
+    n += ((!!(x & ((~0) << (n + 8)))) << 3);
+    n += ((!!(x & ((~0) << (n + 4)))) << 2);
+    n += ((!!(x & ((~0) << (n + 2)))) << 1);
+    n += (!!(x & ((~0) << (n + 1))));
+    return (1 << n) & x;
 }
 
 /* howManyBits - return the minimum number of bits required to represent x in
@@ -720,7 +769,7 @@ int howManyBits(int x)
  */
 int implication(int x, int y)
 {
-    return 42;
+    return (!x) | y;
 }
 
 /*
@@ -747,7 +796,7 @@ int intLog2(int x)
  */
 int isAsciiDigit(int x)
 {
-    return 42;
+    return !(((!!((x >> 4) ^ 3)) | (x >> 3 & x >> 1) | (x >> 3 & x >> 2)) & 1);
 }
 
 /*
@@ -759,7 +808,7 @@ int isAsciiDigit(int x)
  */
 int isEqual(int x, int y)
 {
-    return 42;
+    return !(x ^ y);
 }
 
 /*
@@ -771,7 +820,10 @@ int isEqual(int x, int y)
  */
 int isGreater(int x, int y)
 {
-    return 42;
+    int sign = ((~x & y) >> 30 >> 1) & 1;
+    int mark = ~((x ^ y) >> 30 >> 1);
+    int NotEqul = !!(x ^ y);
+    return sign | ((mark) & (~(x + (~y + 1)) >> 30 >> 1) & NotEqul);
 }
 
 /*
@@ -783,7 +835,9 @@ int isGreater(int x, int y)
  */
 int isLess(int x, int y)
 {
-    return 42;
+    int sign = ((x & ~y) >> 30 >> 1) & 1;
+    int mark = ~((x ^ y) >> 30 >> 1);
+    return sign | (((mark) & (x + (~y + 1)) >> 30 >> 1) & 1);
 }
 
 /*
@@ -795,7 +849,10 @@ int isLess(int x, int y)
  */
 int isLessOrEqual(int x, int y)
 {
-    return 42;
+    int sign = ((x & ~y) >> 30 >> 1) & 1;
+    int mark = ~((x ^ y) >> 30 >> 1);
+    int equl = !(x ^ y);
+    return sign | ((((mark) & (x + (~y + 1)) >> 30 >> 1) | equl) & 1);
 }
 
 /*
@@ -807,7 +864,8 @@ int isLessOrEqual(int x, int y)
  */
 int isNegative(int x)
 {
-    return 42;
+    int sign = x >> 30 >> 1;
+    return !!sign;
 }
 
 /*
@@ -819,7 +877,8 @@ int isNegative(int x)
  */
 int isNonNegative(int x)
 {
-    return 42;
+    int sign = x >> 30 >> 1;
+    return !sign;
 }
 
 /*
@@ -832,7 +891,8 @@ int isNonNegative(int x)
  */
 int isNonZero(int x)
 {
-    return 42;
+    int ans = (1 & (1 & ((x | (~x + 1)) >> 30 >> 1)));
+    return ans;
 }
 
 /*
@@ -844,7 +904,7 @@ int isNonZero(int x)
  */
 int isNotEqual(int x, int y)
 {
-    return 42;
+    return !!(x ^ y);
 }
 
 /*
@@ -868,7 +928,8 @@ int isPallindrome(int x)
  */
 int isPositive(int x)
 {
-    return 42;
+    int sign = x >> 30 >> 1;
+    return (!sign & !!x);
 }
 
 /*
@@ -893,7 +954,8 @@ int isPower2(int x)
  */
 int isTmax(int x)
 {
-    return 42;
+    x += 1;
+    return (!!x & !(x ^ (~x + 1)));
 }
 
 /*
@@ -905,7 +967,7 @@ int isTmax(int x)
  */
 int isTmin(int x)
 {
-    return 42;
+    return (!!x & !(x ^ (~x + 1)));
 }
 
 /*
@@ -917,7 +979,7 @@ int isTmin(int x)
  */
 int isZero(int x)
 {
-    return 42;
+    return !x;
 }
 
 /*
@@ -930,7 +992,7 @@ int isZero(int x)
  */
 int leastBitPos(int x)
 {
-    return 42;
+    return x & (~x + 1);
 }
 
 /*
@@ -956,7 +1018,8 @@ int leftBitCount(int x)
  */
 int logicalNeg(int x)
 {
-    return 42;
+    int ans = (1 & (1 ^ ((x | (~x + 1)) >> 30 >> 1)));
+    return ans;
 }
 
 /*
@@ -969,7 +1032,7 @@ int logicalNeg(int x)
  */
 int logicalShift(int x, int n)
 {
-    return 42;
+    return (x >> n) & ~(((1 << 30 << 1) >> n) << 1);
 }
 
 /*
@@ -1002,7 +1065,7 @@ int minimumOfTwo(int x, int y)
  */
 int minusOne(void)
 {
-    return 42;
+    return ~0;
 }
 
 /*
@@ -1018,7 +1081,8 @@ int minusOne(void)
  */
 int multFiveEighths(int x)
 {
-    return 42;
+    x = x + (x << 2);
+    return (x + ((x >> 30 >> 1) & 7)) >> 3;
 }
 
 /*
@@ -1030,7 +1094,7 @@ int multFiveEighths(int x)
  */
 int negate(int x)
 {
-    return 42;
+    return ~x + 1;
 }
 
 /*
@@ -1041,7 +1105,9 @@ int negate(int x)
  */
 int oddBits(void)
 {
-    return 42;
+    int ans = 0xaaaa;
+    ans |= ans << 16;
+    return ans;
 }
 
 /*
@@ -1213,7 +1279,7 @@ int thirdBits(void)
  */
 int tmax(void)
 {
-    return 42;
+    return ~(1 << 30 << 1);
 }
 
 /*
@@ -1224,7 +1290,7 @@ int tmax(void)
  */
 int tmin(void)
 {
-    return 42;
+    return 1 << 30 << 1;
 }
 
 /*
@@ -1281,5 +1347,7 @@ int twosComp2SignMag(int x)
  */
 int upperBits(int n)
 {
-    return 42;
+    int not = !n;
+    int zero = ~not + 1;
+    return ~zero & ((1 << 30 << 1) >> (n + (~0)));
 }
